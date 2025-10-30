@@ -1,8 +1,25 @@
-const express = require('express');
-const mongoose = require('mongoose');
-const path = require('path');
 require('dotenv').config();
 
+const express = require('express');
+const mongoose = require('mongoose');
+const app = express();
+
+// Asynchronous database connection
+const connectDB = async () => {
+  try {
+    await mongoose.connect(process.env.MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    console.log('MongoDB connection SUCCESS');
+  } catch (error) {
+    console.error('MongoDB connection FAIL:', error);
+    process.exit(1); // Exit the app on connection failure
+  }
+};
+
+// Connect to the database before starting the server
+connectDB();
 // Route imports
 const authRoutes = require('./routes/auth');
 const whatsappRoutes = require('./routes/whatsapp');
