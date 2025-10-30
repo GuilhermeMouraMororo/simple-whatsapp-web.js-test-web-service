@@ -24,8 +24,6 @@ connectDB();
 const authRoutes = require('./routes/auth');
 const whatsappRoutes = require('./routes/whatsapp');
 
-const app = express();
-
 // Middleware
 app.use(express.json());
 app.use(express.static('public'));
