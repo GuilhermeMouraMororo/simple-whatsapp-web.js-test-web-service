@@ -1,81 +1,109 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>WhatsApp Service - Login</title>
+    <title>Dashboard - WhatsApp Service</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 400px; margin: 100px auto; padding: 20px; }
-        .form-container { margin-bottom: 20px; }
-        input { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 4px; }
-        button { width: 100%; padding: 10px; background: #25D366; color: white; border: none; border-radius: 4px; cursor: pointer; }
-        .tab { cursor: pointer; padding: 10px; display: inline-block; }
-        .active { border-bottom: 2px solid #25D366; }
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
+        #qr-container, #message-container { text-align: center; margin: 20px 0; }
+        #qr-code { margin: 20px auto; }
+        button { padding: 10px 20px; background: #25D366; color: white; border: none; border-radius: 4px; cursor: pointer; margin: 5px; }
+        button:disabled { background: #cccccc; }
         .hidden { display: none; }
+        .status { padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .ready { background: #d4edda; color: #155724; }
+        .waiting { background: #fff3cd; color: #856404; }
     </style>
 </head>
 <body>
-    <h2>WhatsApp Service</h2>
+    <h2>WhatsApp Dashboard</h2>
     <div>
-        <div class="tab active" onclick="showTab('login')">Login</div>
-        <div class="tab" onclick="showTab('register')">Register</div>
+        <button onclick="logout()" style="float: right;">Logout</button>
+        <div id="user-info"></div>
     </div>
 
-    <div id="login-form" class="form-container">
-        <h3>Login</h3>
-        <input type="text" id="login-username" placeholder="Username">
-        <input type="password" id="login-password" placeholder="Password">
-        <button onclick="login()">Login</button>
+    <div id="qr-container" class="hidden">
+        <h3>Scan QR Code to Connect WhatsApp</h3>
+        <div id="qr-code"></div>
+        <p>Scan this QR code with your WhatsApp phone app</p>
     </div>
 
-    <div id="register-form" class="form-container hidden">
-        <h3>Register</h3>
-        <input type="text" id="register-username" placeholder="Username">
-        <input type="password" id="register-password" placeholder="Password">
-        <button onclick="register()">Register</button>
+    <div id="message-container" class="hidden">
+        <h3>Send Test Message</h3>
+        <button onclick="sendMessage()" id="send-btn">Send "Hello World" Message</button>
+        <div id="message-status"></div>
     </div>
 
+    <div id="status-container" class="status"></div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
     <script>
-        function showTab(tab) {
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.form-container').forEach(f => f.classList.add('hidden'));
-            event.target.classList.add('active');
-            document.getElementById(tab + '-form').classList.remove('hidden');
-        }
+        const token = localStorage.getItem('token');
+        if (!token) window.location.href = '/';
 
-        async function login() {
-            const response = await fetch('/api/auth/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    username: document.getElementById('login-username').value,
-                    password: document.getElementById('login-password').value
-                })
+        async function checkStatus() {
+            const response = await fetch('/api/whatsapp/status', {
+                headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await response.json();
-            if (data.status === 'success') {
-                localStorage.setItem('token', data.token);
-                window.location.href = '/dashboard';
+            
+            const statusDiv = document.getElementById('status-container');
+            statusDiv.textContent = `Status: ${data.status}`;
+            statusDiv.className = `status ${data.whatsappReady ? 'ready' : 'waiting'}`;
+
+            if (data.firstLogin || !data.whatsappReady) {
+                document.getElementById('qr-container').classList.remove('hidden');
+                document.getElementById('message-container').classList.add('hidden');
+                if (data.status === 'qr_waiting') {
+                    await getQRCode();
+                }
             } else {
-                alert(data.error);
+                document.getElementById('qr-container').classList.add('hidden');
+                document.getElementById('message-container').classList.remove('hidden');
             }
         }
 
-        async function register() {
-            const response = await fetch('/api/auth/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    username: document.getElementById('register-username').value,
-                    password: document.getElementById('register-password').value
-                })
+        async function getQRCode() {
+            const response = await fetch('/api/whatsapp/qr', {
+                headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await response.json();
-            if (data.status === 'success') {
-                alert('Registration successful! Please login.');
-                showTab('login');
-            } else {
-                alert(data.error);
+            if (data.qrCode) {
+                QRCode.toCanvas(document.getElementById('qr-code'), data.qrCode, function(error) {
+                    if (error) console.error(error);
+                });
             }
         }
+
+        async function sendMessage() {
+            const btn = document.getElementById('send-btn');
+            btn.disabled = true;
+            btn.textContent = 'Sending...';
+            
+            const response = await fetch('/api/whatsapp/send-message', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            const data = await response.json();
+            
+            document.getElementById('message-status').textContent = 
+                data.status === 'success' ? 'Message sent successfully!' : `Error: ${data.error}`;
+            
+            btn.disabled = false;
+            btn.textContent = 'Send "Hello World" Message';
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            window.location.href = '/';
+        }
+
+        // Check status every 3 seconds
+        setInterval(checkStatus, 3000);
+        checkStatus();
     </script>
 </body>
 </html>
