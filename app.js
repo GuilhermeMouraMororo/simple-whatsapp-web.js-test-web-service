@@ -1,28 +1,13 @@
 require('dotenv').config();
-
 const express = require('express');
 const mongoose = require('mongoose');
-const app = express();
+const path = require('path');
 
-// Asynchronous database connection
-const connectDB = async () => {
-  try {
-    await mongoose.connect(process.env.MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
-    console.log('MongoDB connection SUCCESS');
-  } catch (error) {
-    console.error('MongoDB connection FAIL:', error);
-    process.exit(1); // Exit the app on connection failure
-  }
-};
-
-// Connect to the database before starting the server
-connectDB();
 // Route imports
 const authRoutes = require('./routes/auth');
 const whatsappRoutes = require('./routes/whatsapp');
+
+const app = express();
 
 // Middleware
 app.use(express.json());
@@ -57,15 +42,28 @@ app.get('/dashboard', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
-// MongoDB connection
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(() => console.log('Connected to MongoDB Atlas'))
-.catch(err => console.error('MongoDB connection error:', err));;
+// MongoDB connection - ONLY ONE CONNECTION
+const connectDB = async () => {
+  try {
+    await mongoose.connect(process.env.MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    console.log('Connected to MongoDB Atlas');
+  } catch (error) {
+    console.error('MongoDB connection FAIL:', error);
+    process.exit(1);
+  }
+};
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+// Start server only after MongoDB connection
+const startServer = async () => {
+  await connectDB();
+  
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+};
+
+startServer();
