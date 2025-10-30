@@ -1,1 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WhatsApp Service - Login</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 400px; margin: 100px auto; padding: 20px; }
+        .form-container { margin-bottom: 20px; }
+        input { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 4px; }
+        button { width: 100%; padding: 10px; background: #25D366; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .tab { cursor: pointer; padding: 10px; display: inline-block; }
+        .active { border-bottom: 2px solid #25D366; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <h2>WhatsApp Service</h2>
+    <div>
+        <div class="tab active" onclick="showTab('login')">Login</div>
+        <div class="tab" onclick="showTab('register')">Register</div>
+    </div>
 
+    <div id="login-form" class="form-container">
+        <h3>Login</h3>
+        <input type="text" id="login-username" placeholder="Username">
+        <input type="password" id="login-password" placeholder="Password">
+        <button onclick="login()">Login</button>
+    </div>
+
+    <div id="register-form" class="form-container hidden">
+        <h3>Register</h3>
+        <input type="text" id="register-username" placeholder="Username">
+        <input type="password" id="register-password" placeholder="Password">
+        <button onclick="register()">Register</button>
+    </div>
+
+    <script>
+        function showTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.form-container').forEach(f => f.classList.add('hidden'));
+            event.target.classList.add('active');
+            document.getElementById(tab + '-form').classList.remove('hidden');
+        }
+
+        async function login() {
+            const response = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username: document.getElementById('login-username').value,
+                    password: document.getElementById('login-password').value
+                })
+            });
+            const data = await response.json();
+            if (data.status === 'success') {
+                localStorage.setItem('token', data.token);
+                window.location.href = '/dashboard';
+            } else {
+                alert(data.error);
+            }
+        }
+
+        async function register() {
+            const response = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username: document.getElementById('register-username').value,
+                    password: document.getElementById('register-password').value
+                })
+            });
+            const data = await response.json();
+            if (data.status === 'success') {
+                alert('Registration successful! Please login.');
+                showTab('login');
+            } else {
+                alert(data.error);
+            }
+        }
+    </script>
+</body>
+</html>
